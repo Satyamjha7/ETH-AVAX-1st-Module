@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract CharityAuction {
+    address payable public charity;
+    address public highestBidder;
+    uint public highestBid;
+    uint public auctionEndTime;
+    bool public auctionEnded;
+    mapping(address => uint) public bids;
+
+    // Constructor to initialize charity and auction duration
+    constructor(address payable _charity, uint _auctionDuration) {
+        charity = _charity;
+        auctionEndTime = block.timestamp + _auctionDuration;
+    }
+
+    // Function to place a bid
+    function placeBid() public payable {
+        require(block.timestamp < auctionEndTime, "Auction has ended.");
+        require(msg.value > highestBid, "Bid must be higher than the current highest bid.");
+
+        // Refund the previous highest bidder
+        if (highestBidder != address(0)) {
+            bids[highestBidder] += highestBid;
+        }
+
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+    }
+
+    // Function to end the auction
+    function endAuction() public {
+        require(block.timestamp >= auctionEndTime, "Auction is still ongoing.");
+        require(!auctionEnded, "Auction has already ended.");
+
+        auctionEnded = true;
+
+        // Transfer the funds to the charity
+        charity.transfer(highestBid);
+
+        // Reset highestBidder and highestBid
+        highestBidder = address(0);
+        highestBid = 0;
+    }
+
+    // Function to withdraw a refund
+    function withdrawRefund() public {
+        require(auctionEnded, "Auction has not ended yet.");
+        require(msg.sender != highestBidder, "Highest bidder cannot withdraw.");
+
+        uint refundAmount = bids[msg.sender];
+        require(refundAmount > 0, "No funds to withdraw.");
+
+        // Reset the bid amount to zero before transferring the refund
+        bids[msg.sender] = 0;
+        payable(msg.sender).transfer(refundAmount);
+    }
+}
